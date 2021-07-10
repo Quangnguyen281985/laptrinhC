@@ -1,0 +1,304 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define FILENAME "log.txt"
+#define MAXLENGTHFILE 5000
+
+char fileStr[MAXLENGTHFILE];
+
+char fileToStr (char* str)
+{
+    int status;
+    FILE *fp = NULL;
+
+    fp = fopen(FILENAME, "r");
+    if (fp == NULL)
+        {
+        printf("File does not exits\n");
+        return -1;
+        }
+    status = fread(str, MAXLENGTHFILE, 1, fp);
+
+    fclose(fp);
+    fp = NULL;
+    return status;
+}
+
+// Hàm tính số bản tin gửi đi
+void sobantinguidi(char *str, char *str_search)
+{
+    char *pFound = NULL;
+    const char s[2]="\n";
+    int sum=0;
+    char *token;
+    token=strtok(str,s);
+
+    while(token!=NULL)
+    {
+        pFound=strstr(token,str_search);
+        if(pFound!=NULL)
+            {
+            printf("%s\n",token);
+            sum++;
+            }
+
+        token=strtok(NULL,s);
+    }
+    printf("So ban tin: %d\n",sum);
+}
+
+// Hàm tính số bản tin gửi đi từ thiết bị
+void sobantintuthietbi(char *str, char *str_search)
+{
+    const char s[2]="\n";
+    char *pFound = NULL;
+    char *pFound2 = NULL;
+    int sum=0;
+    char nwk[10];
+
+    printf("NHap dia chi nwk cua thiet bị:\n");
+    scanf("%s",nwk);
+
+    char *token;
+    token=strtok(str,s);
+
+    while(token!=NULL)
+    {
+        pFound=strstr(token,nwk);
+        pFound2=strstr(token,str_search);
+        if(pFound!=NULL && pFound2 != NULL)
+        {
+            printf("%s\n",token);
+            sum++;
+        }
+
+        token=strtok(NULL,s);
+    }
+    printf("So ban tin gui di la: %d\n",sum);
+
+}
+
+//Hàm số công tác
+void socongtac(char *str)
+{
+    char s[2]="\n";
+    char chuoi[6];
+    char mang_network[100]="";
+    char str_search_switch[]="-";
+    char str_cmd_set[]="set";
+    char *token1;
+    char *pFound=NULL, *pFound1=NULL, *test1=NULL;
+    int sum = 0;    //Tính tổng số công tắc trong log
+
+    //Tách file log thành từng bản tin dựa vào '\n'
+    token1=strtok(str,s);
+
+    while (token1 != NULL)
+    {
+        test1=NULL;
+        pFound1=strstr(token1,str_cmd_set);         //Tìm chuỗi có CMD:SET thay vì type:switch - Vì bản tin nào cũng có type switch
+        if(pFound1 != NULL)
+        {
+            pFound=strstr(pFound1,str_search_switch);       //Tìm chuỗi có network trong bản ghi có CMD:SET
+            strncpy(chuoi,pFound,5);                        // Copy 5 ký tự trong chuỗi có nwh vào mảng chuỗi
+
+            //kiểm tra xem chuoi con này có trong mang_network chưa
+            test1=strstr(mang_network,chuoi);
+            if(test1==NULL)
+                {
+                    strcat(mang_network,chuoi);
+                    ++sum;
+                }
+        }
+
+        token1=strtok(NULL,s);
+    }
+
+    //In số công tắc ra màn hình
+    pFound=strtok(mang_network,str_search_switch);
+    for (int i=1;i<=sum;i++)
+        {
+            printf("Thiet bi %d co dia chi la : NWK - %s, ENDPOINT -1\n", i,pFound);
+            pFound=strtok(NULL,str_search_switch);
+        }
+}
+
+//Hàm tính số bản tin gửi lỗi
+int sobantinguiloi(char *str)
+{
+    int sotinloi=0;
+    const char s[2]="\n";
+    char s_requid[]="reqid";
+    char *pFound = NULL;
+    char *pFound1 = NULL;
+    char *token;
+
+    //Tách chuỗi thành các bản tin dựa vào '\n'
+    token=strtok(str,s);
+
+    while(token!=NULL)
+    {
+        pFound=strstr(token,s_requid);
+        token=strtok(NULL,s);
+        pFound1=strstr(token,s_requid);
+        token=strtok(NULL,s);
+        if(strcmp(pFound,pFound1)!=0)
+        {
+            ++sotinloi;
+        }
+    }
+    return sotinloi;
+}
+
+//Hàm tính độ trễ
+float thoigiantrelonnhat(char *str)
+{
+    float max_delay=0;
+    const char s[2]="\n";
+    char phut_di[3], giay_di[7], phut_den[3],giay_den[7];
+    float sophut_di, sogiay_di,sophut_den,sogiay_den;
+    char s_requid[]="reqid";
+    char *pFound = NULL, *pFound1 = NULL, *p_reqid=NULL, *p_requid1=NULL;
+    char *token;
+
+    //Tách chuỗi thành các bản tin dựa vào '\n'
+    token=strtok(str,s);
+
+    while(token!=NULL)
+    {
+        p_reqid=strstr(token,s_requid);
+        pFound=strstr(token,":");           //Tách chuỗi dựa vào ":" ngay trước phút
+
+        //Tính số phút đi
+        for (int i=1;i<=2;i++)
+        {
+            phut_di[i-1]=*(pFound+i);
+        }
+        sophut_di=(float)atof(phut_di);
+
+        //Tính số giây đi
+        for (int j=4;j<=9;j++)
+        {
+            giay_di[j-4]=pFound[j];
+        }
+        sogiay_di=(float)atof(giay_di)+sophut_di*60;        // Số giây đi = số giấy + số phút *60;
+        token=strtok(NULL,s);
+        pFound1=strstr(token,":");
+        // Viết lệnh lấy thời gian đến
+        for (int i=1;i<=2;i++)
+        {
+            phut_den[i-1]=*(pFound1+i);
+        }
+        sophut_den=(float)atof(phut_den);
+
+        //Tính số giây
+        for (int j=4;j<=9;j++)
+        {
+            giay_den[j-4]=pFound1[j];
+        }
+        sogiay_den=(float)atof(giay_den)+sophut_den*60;
+
+        p_requid1=strstr(token,s_requid);
+        //Kiểm tra xem bản tin có bị lỗi ko sau đó mới tính độ trễ
+
+        if(strcmp(p_reqid,p_requid1)==0)
+        {
+            if(max_delay<sogiay_den-sogiay_di)
+            {
+                max_delay=sogiay_den-sogiay_di;
+            }
+        }
+
+        token=strtok(NULL,s);
+
+    }
+
+    return max_delay;
+}
+
+
+//Hàm tính thời gian trễ trung bình
+float thoigiantretrungbinh(char *str)
+{
+    float average_delay=0;
+    int sobantinthanhcong=0;
+    const char s[2]="\n";
+    char phut_di[3], giay_di[7], phut_den[3],giay_den[7];
+    float sophut_di, sogiay_di,sophut_den,sogiay_den;
+    char s_requid[]="reqid";
+    char *pFound = NULL, *pFound1 = NULL, *p_reqid=NULL, *p_requid1=NULL;
+    char *token;
+
+    //Tách chuỗi thành các bản tin dựa vào '\n'
+    token=strtok(str,s);
+
+    while(token!=NULL)
+    {
+        p_reqid=strstr(token,s_requid);
+        pFound=strstr(token,":");
+
+        //Tính số phút đi
+        for (int i=1;i<=2;i++)
+        {
+            phut_di[i-1]=*(pFound+i);
+        }
+        sophut_di=(float)atof(phut_di);
+
+        //Tính số giây đi
+        for (int j=4;j<=9;j++)
+        {
+            giay_di[j-4]=pFound[j];
+        }
+        sogiay_di=(float)atof(giay_di)+sophut_di*60;
+        token=strtok(NULL,s);
+        pFound1=strstr(token,":");
+        // Viết lệnh lấy thời gian đến
+        for (int i=1;i<=2;i++)
+        {
+            phut_den[i-1]=*(pFound1+i);
+        }
+        sophut_den=(float)atof(phut_den);
+
+        //Tính số giây
+        for (int j=4;j<=9;j++)
+        {
+            giay_den[j-4]=pFound1[j];
+        }
+        sogiay_den=(float)atof(giay_den)+sophut_den*60;
+
+        p_requid1=strstr(token,s_requid);
+        //Kiểm tra xem bản tin có bị lỗi ko sau đó mới tính độ trễ
+
+        if(strcmp(p_reqid,p_requid1)==0)
+        {
+            ++sobantinthanhcong;
+            average_delay+=sogiay_den-sogiay_di;
+        }
+
+        token=strtok(NULL,s);
+
+    }
+    average_delay=average_delay/sobantinthanhcong;
+    return average_delay;
+}
+
+int main()
+{
+    //char str1[];
+    const char str2[]="\"cmd\":\"set\"";
+    int sotinloi=0;
+    float max_tre, average_tre;
+       fileToStr(fileStr);
+    //printf("Noi dung cua file log.txt: \n%s", fileStr);
+    //sobantinguidi(fileStr, str2);
+    //sobantintuthietbi(fileStr,str2);
+    //socongtac(fileStr);
+    //sotinloi=sobantinguiloi(fileStr);
+    //printf("So tin loi: %d\n",sotinloi);
+    //max_tre=thoigiantrelonnhat(fileStr);
+    //printf("Thoi gian tre lon nhat:%.0f miligiay\n",max_tre*1000);
+    average_tre=thoigiantretrungbinh(fileStr);
+    printf("Thoi gian tre lon nhat:%.0f miligiay\n",average_tre*1000);
+    return 0;
+}
